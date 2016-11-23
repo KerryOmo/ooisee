@@ -1,0 +1,225 @@
+<html>
+<head>
+<meta charset="utf-8">
+<title>Authentication</title>    
+<!-- Angular -->
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css?family=Roboto" rel="stylesheet">
+
+<link rel="stylesheet" href="css/bootstrap.min.css">
+<style>
+  html,body,table{
+    font-family: 'Roboto', sans-serif;
+  }
+</style>
+<script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+
+<script src="css/bootstrap.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.5.8/angular.min.js"></script>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/3.3.0/firebase.js"></script>
+
+<!-- AngularFire -->
+<script src="https://cdn.firebase.com/libs/angularfire/2.0.1/angularfire.min.js"></script>
+
+<!-- AngularRoute -->
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.js"></script>
+
+<script>
+  // Initialize Firebase
+var config = {
+    apiKey: "AIzaSyCDHLjsdwcPj1hGMTBymnilf2FzXEnQhyw",
+    authDomain: "startup-d96aa.firebaseapp.com",
+    databaseURL: "https://startup-d96aa.firebaseio.com",
+    storageBucket: "startup-d96aa.appspot.com",
+    messagingSenderId: "891162822716"
+};
+firebase.initializeApp(config);
+var app = angular.module("sampleApp", ["firebase","ngRoute"]);
+
+app.config(function($routeProvider) {
+    $routeProvider
+    .when("/", {
+        templateUrl : "view/login.htm",
+        controller : "loginCtrl"
+    })
+    .when("/home", {
+        templateUrl : "view/dashboard.htm",
+        controller : "dashboardCtrl"
+    })
+    .when("/profil", {
+        templateUrl : "view/profil.htm",
+        controller : "profilCtrl"
+    })
+    .when("/editProfil", {
+        templateUrl : "view/setting.htm",
+        controller : "settingCtrl"
+    })
+    /*.when("/404", {
+        templateUrl : "view/404.htm",
+        controller : "errCtrl"
+    })*/
+    .when("/detail/:id", {
+        templateUrl : "view/detail.htm",
+        controller : "detailCtrl"
+    })
+    /*.otherwise({
+        redirectTo : "/404.html"
+    });*/
+});
+
+app.factory("Auth", ["$firebaseAuth",
+  function($firebaseAuth) {
+    return $firebaseAuth();
+  }
+]);
+
+app.factory("Profile", ["$firebaseArray",
+  function($firebaseArray) {
+    // create a reference to the database where we will store our data
+    var ref = firebase.database().ref().child('users');
+
+    return $firebaseArray(ref);
+  }
+]);
+
+app.controller("profilCtrl", ["$scope", "Auth","$firebaseObject",
+  function($scope, Auth, $firebaseObject) {
+
+    $scope.auth = Auth;
+    // any time auth state changes, add the user data to scope
+    $scope.auth.$onAuthStateChanged(function(firebaseUser) {
+
+      $scope.firebaseUser = firebaseUser;
+      if(!firebaseUser){
+        window.location="#/";
+        $scope.linkProfil = false;
+        
+      }else{
+        uid = firebaseUser.uid;
+        var userDetail = firebase.database().ref().child('users/'+uid);
+        $scope.detailProfil = $firebaseObject(userDetail);
+      }
+
+    });
+
+    $scope.logOut = function(){
+      $scope.auth.$signOut()
+      window.location='#/';
+    }
+
+  }
+
+]);
+
+app.controller('loginCtrl', ["$scope","Auth", function($scope,Auth){
+  
+  $scope.auth = Auth;
+  $scope.auth.$onAuthStateChanged(function(firebaseUser) {
+
+      $scope.firebaseUser = firebaseUser;
+      if(firebaseUser){
+        window.location="#/profil";
+      }
+    });
+  $scope.signIn = function() {
+      $scope.firebaseUser = null;
+      $scope.error = null;
+      
+      $scope.auth.$signInWithEmailAndPassword($scope.email, $scope.password).then(function(firebaseUser) {
+        $scope.firebaseUser = firebaseUser;
+        window.location = "#profil";
+      }).catch(function(error) {
+        $scope.error = error;
+      });
+
+    };
+}])
+
+app.controller("settingCtrl", ["$scope", "Auth","$firebaseObject","$firebaseArray",
+  function($scope, Auth, $firebaseObject, $firebaseArray) {
+    $scope.auth = Auth;
+    var uid  = '';
+    
+    $scope.auth.$onAuthStateChanged(function(firebaseUser) {
+      $scope.firebaseUser = firebaseUser;
+      if(!firebaseUser){
+        window.location="#/";
+      }else{
+        uid = firebaseUser.uid;    
+        var usrRef = firebase.database().ref().child('users/'+firebaseUser.uid);
+        $scope.dataUser = $firebaseArray(usrRef);
+        console.log($scope.dataUser);
+        $scope.nama = { value : dataUser.nama } ;
+        $scope.dob = { value : dataUser.dob };
+        $scope.jk = { value : dataUser.jk };
+      }
+    });
+    
+    $scope.updateProfil = function(){
+      var usrRef = firebase.database().ref().child('users/'+uid);
+      usrRef.update({
+        nama : $scope.nama,
+        dob : $scope.dob.getTime(),
+        jk : $scope.jk
+      }).then(function(){
+        alert('suksess update profil');
+        window.location="#/profil";
+      }).catch(function(error){
+        alert('whoops, error occurs update profil data');
+      });//Masih menggunakan Javascript biasa
+      //console.log($scope.dob.getTime());
+    }
+  }
+
+]);
+app.controller('dashboardCtrl', ["$scope","Auth","Profile", function($scope, Auth, Profile){
+  $scope.profil = Profile;
+
+}]);
+
+app.controller('detailCtrl', ["$scope","$routeParams","$firebaseObject", function($scope, $routeParams, $firebaseObject){
+  $scope.idParam = $routeParams.id;
+  var userDetail = firebase.database().ref().child('users/'+$routeParams.id);
+    $scope.detailProfil = $firebaseObject(userDetail);  
+}]);
+</script>
+</head>
+<body>
+  <nav class="navbar navbar-default">
+  <div class="container-fluid">
+    <!-- Brand and toggle get grouped for better mobile display -->
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#bs-example-navbar-collapse-1" aria-expanded="false">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="#">OO I SEE</a>
+    </div>
+
+    <!-- Collect the nav links, forms, and other content for toggling -->
+    <div class="collapse navbar-collapse" id="bs-example-navbar-collapse-1">
+      <ul class="nav navbar-nav">
+        <li class="active"><a href="#/home">Home <span class="sr-only">(current)</span></a></li>
+        <li><a href="#"></a></li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right" ng-controller="profilCtrl" ng-show="false">        
+        <li class="dropdown">
+          <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Profil <span class="caret"></span></a>
+          <ul class="dropdown-menu">
+            <li><a href="#editProfil">Setting</a></li>
+            <li><a ng-click="auth.$SignOut()" >Log-Out</a></li>
+          </ul>
+        </li>
+      </ul>
+    </div><!-- /.navbar-collapse -->
+  </div><!-- /.container-fluid -->
+</nav>
+<div ng-app="sampleApp" class="container">
+  <ng-view></ng-view>
+</div>
+</body>
+</html>
